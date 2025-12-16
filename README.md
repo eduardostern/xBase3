@@ -5,6 +5,7 @@ A dBASE III+ compatible database system written in C.
 ## Features
 
 - **Full DBF Support**: Read and write standard dBASE III+ .DBF files
+- **XDX Index Engine**: Custom B-tree index format for fast lookups
 - **Interactive REPL**: Classic dot-prompt interface
 - **Expression Evaluator**: Arithmetic, string, logical, and relational operations
 - **Built-in Functions**: String, numeric, date, and conversion functions
@@ -73,6 +74,12 @@ make test
 | `LIST` / `DISPLAY` | Show records |
 | `LOCATE FOR <condition>` | Find record |
 | `CONTINUE` | Find next matching record |
+| `INDEX ON <expr> TO <file>` | Create index on expression |
+| `SET INDEX TO <file>` | Open existing index |
+| `SET ORDER TO <n>` | Select controlling index |
+| `SEEK <value>` | Find record by index key |
+| `REINDEX` | Rebuild open indexes |
+| `CLOSE INDEXES` | Close all indexes |
 | `?` / `??` | Print expressions |
 | `STORE <value> TO <var>` | Assign variable |
 | `QUIT` | Exit program |
@@ -143,11 +150,31 @@ EMPLOYEES> ? SUM(salary)
 EMPLOYEES> QUIT
 ```
 
-## File Format
+## File Formats
 
-xBase3 uses the standard dBASE III+ file format:
-- `.DBF` - Database files (fully compatible with dBASE III+)
-- `.XDX` - Index files (custom B-tree format, planned for future)
+### DBF (Database Files)
+Standard dBASE III+ format - fully compatible with other dBASE implementations.
+
+### XDX (Index Files)
+Custom B-tree index format:
+- 512-byte header with key expression, type, and flags
+- B-tree nodes with configurable order (default: 50 keys per node)
+- Supports Character, Numeric, and Date key types
+- Optional UNIQUE and DESCENDING flags
+
+## Index Example
+
+```
+. USE customers
+CUSTOMERS> INDEX ON name TO custname UNIQUE
+100 record(s) indexed
+CUSTOMERS> SEEK "Smith"
+Found at record 42
+CUSTOMERS> ? NAME
+Smith, John
+CUSTOMERS> SET INDEX TO
+Indexes closed
+```
 
 ## License
 
