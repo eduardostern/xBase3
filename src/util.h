@@ -11,6 +11,24 @@
 #include <stdint.h>
 #include <setjmp.h>
 
+/* ANSI Color codes */
+#define CLR_RESET       "\033[0m"
+#define CLR_BOLD        "\033[1m"
+#define CLR_DIM         "\033[2m"
+#define CLR_RED         "\033[31m"
+#define CLR_GREEN       "\033[32m"
+#define CLR_YELLOW      "\033[33m"
+#define CLR_BLUE        "\033[34m"
+#define CLR_MAGENTA     "\033[35m"
+#define CLR_CYAN        "\033[36m"
+#define CLR_WHITE       "\033[37m"
+#define CLR_BRED        "\033[91m"
+#define CLR_BGREEN      "\033[92m"
+#define CLR_BYELLOW     "\033[93m"
+#define CLR_BBLUE       "\033[94m"
+#define CLR_BMAGENTA    "\033[95m"
+#define CLR_BCYAN       "\033[96m"
+
 /* Maximum lengths */
 #define MAX_PATH_LEN        260
 #define MAX_FIELD_NAME      11

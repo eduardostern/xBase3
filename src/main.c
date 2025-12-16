@@ -39,10 +39,11 @@ static void signal_handler(int sig) {
 /* Print banner */
 static void print_banner(void) {
     printf("\n");
-    printf("xBase3 version %s\n", XBASE3_VERSION);
-    printf("dBASE III+ Compatible Database System\n");
-    printf("dBASE originally by Ashton-Tate (1979), later Borland\n");
-    printf("Type HELP for commands, QUIT to exit\n");
+    printf(CLR_BOLD CLR_BCYAN "  📦 xBase3" CLR_RESET CLR_DIM " v%s" CLR_RESET "\n", XBASE3_VERSION);
+    printf(CLR_BGREEN "  dBASE III+ Compatible Database System" CLR_RESET "\n");
+    printf(CLR_DIM "  Originally by Ashton-Tate (1979) • Later Borland" CLR_RESET "\n");
+    printf("\n");
+    printf("  💡 Type " CLR_BYELLOW "HELP" CLR_RESET " for commands, " CLR_BYELLOW "QUIT" CLR_RESET " to exit\n");
     printf("\n");
 }
 
@@ -50,9 +51,9 @@ static void print_banner(void) {
 static void print_prompt(void) {
     DBF *dbf = cmd_get_current_dbf(&g_ctx);
     if (dbf) {
-        printf("%s> ", dbf_get_alias(dbf));
+        printf(CLR_BOLD CLR_BMAGENTA "%s" CLR_RESET CLR_CYAN ">" CLR_RESET " ", dbf_get_alias(dbf));
     } else {
-        printf(". ");
+        printf(CLR_BCYAN "." CLR_RESET " ");
     }
     fflush(stdout);
 }
@@ -61,11 +62,13 @@ static void print_prompt(void) {
 static char *read_line(void) {
 #ifdef HAVE_READLINE
     DBF *dbf = cmd_get_current_dbf(&g_ctx);
-    char prompt[64];
+    char prompt[128];
     if (dbf) {
-        snprintf(prompt, sizeof(prompt), "%s> ", dbf_get_alias(dbf));
+        snprintf(prompt, sizeof(prompt),
+            CLR_BOLD CLR_BMAGENTA "%s" CLR_RESET CLR_CYAN ">" CLR_RESET " ",
+            dbf_get_alias(dbf));
     } else {
-        strcpy(prompt, ". ");
+        strcpy(prompt, CLR_BCYAN "." CLR_RESET " ");
     }
     char *line = readline(prompt);
     if (line && *line) {
