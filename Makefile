@@ -2,7 +2,7 @@
 
 CC = clang
 CFLAGS = -std=c11 -Wall -Wextra -pedantic -g -O0
-LDFLAGS = -lm
+LDFLAGS = -lm -lpthread
 
 # Check for readline
 READLINE_CHECK := $(shell echo '\#include <readline/readline.h>' | $(CC) -E - 2>/dev/null && echo yes)
@@ -26,7 +26,10 @@ SOURCES = $(SRCDIR)/util.c \
           $(SRCDIR)/expr.c \
           $(SRCDIR)/functions.c \
           $(SRCDIR)/variables.c \
-          $(SRCDIR)/commands.c
+          $(SRCDIR)/commands.c \
+          $(SRCDIR)/json.c \
+          $(SRCDIR)/server.c \
+          $(SRCDIR)/handlers.c
 
 MAIN_SRC = $(SRCDIR)/main.c
 
@@ -92,4 +95,7 @@ $(BUILDDIR)/expr.o: $(SRCDIR)/expr.h $(SRCDIR)/ast.h $(SRCDIR)/dbf.h
 $(BUILDDIR)/functions.o: $(SRCDIR)/functions.h $(SRCDIR)/expr.h
 $(BUILDDIR)/variables.o: $(SRCDIR)/variables.h $(SRCDIR)/expr.h
 $(BUILDDIR)/commands.o: $(SRCDIR)/commands.h $(SRCDIR)/ast.h $(SRCDIR)/expr.h $(SRCDIR)/dbf.h $(SRCDIR)/xdx.h
-$(BUILDDIR)/main.o: $(SRCDIR)/util.h $(SRCDIR)/lexer.h $(SRCDIR)/parser.h $(SRCDIR)/ast.h $(SRCDIR)/expr.h $(SRCDIR)/commands.h $(SRCDIR)/dbf.h
+$(BUILDDIR)/json.o: $(SRCDIR)/json.h
+$(BUILDDIR)/server.o: $(SRCDIR)/server.h $(SRCDIR)/commands.h $(SRCDIR)/json.h
+$(BUILDDIR)/handlers.o: $(SRCDIR)/handlers.h $(SRCDIR)/server.h $(SRCDIR)/commands.h $(SRCDIR)/json.h $(SRCDIR)/parser.h
+$(BUILDDIR)/main.o: $(SRCDIR)/util.h $(SRCDIR)/lexer.h $(SRCDIR)/parser.h $(SRCDIR)/ast.h $(SRCDIR)/expr.h $(SRCDIR)/commands.h $(SRCDIR)/dbf.h $(SRCDIR)/server.h $(SRCDIR)/handlers.h

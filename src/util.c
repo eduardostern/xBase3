@@ -12,33 +12,36 @@
 #include <time.h>
 #include <math.h>
 
-/* Global error state */
-jmp_buf g_error_jmp;
-ErrorCode g_last_error = ERR_NONE;
-char g_error_msg[256] = {0};
+/* Thread-local error state */
+__thread jmp_buf g_error_jmp;
+__thread ErrorCode g_last_error = ERR_NONE;
+__thread char g_error_msg[256] = {0};
+__thread bool g_error_jmp_enabled = true;  /* Enabled by default for REPL */
 
-/* Error strings */
+/* Error strings - must match ErrorCode enum order */
 static const char *error_strings[] = {
-    "No error",
-    "File not found",
-    "Cannot create file",
-    "Error reading file",
-    "Error writing file",
-    "Invalid DBF file",
-    "Invalid field",
-    "Invalid record number",
-    "Out of memory",
-    "Syntax error",
-    "Type mismatch",
-    "Undefined variable",
-    "Undefined function",
-    "Division by zero",
-    "Numeric overflow",
-    "No database in use",
-    "End of file",
-    "Beginning of file",
-    "Not implemented",
-    "Internal error"
+    "No error",               /* ERR_NONE */
+    "File not found",         /* ERR_FILE_NOT_FOUND */
+    "Cannot create file",     /* ERR_FILE_CREATE */
+    "Error reading file",     /* ERR_FILE_READ */
+    "Error writing file",     /* ERR_FILE_WRITE */
+    "Invalid DBF file",       /* ERR_INVALID_DBF */
+    "Invalid index",          /* ERR_INVALID_INDEX */
+    "Invalid field",          /* ERR_INVALID_FIELD */
+    "Invalid record number",  /* ERR_INVALID_RECORD */
+    "Out of memory",          /* ERR_OUT_OF_MEMORY */
+    "Syntax error",           /* ERR_SYNTAX */
+    "Type mismatch",          /* ERR_TYPE_MISMATCH */
+    "Undefined variable",     /* ERR_UNDEFINED_VAR */
+    "Undefined function",     /* ERR_UNDEFINED_FUNC */
+    "Division by zero",       /* ERR_DIVISION_BY_ZERO */
+    "Numeric overflow",       /* ERR_OVERFLOW */
+    "No database in use",     /* ERR_NO_DATABASE */
+    "Duplicate key",          /* ERR_DUPLICATE_KEY */
+    "End of file",            /* ERR_EOF */
+    "Beginning of file",      /* ERR_BOF */
+    "Not implemented",        /* ERR_NOT_IMPLEMENTED */
+    "Internal error"          /* ERR_INTERNAL */
 };
 
 void error_set(ErrorCode code, const char *fmt, ...) {
@@ -75,12 +78,22 @@ void error_print(void) {
     }
 }
 
+void error_enable_longjmp(bool enable) {
+    g_error_jmp_enabled = enable;
+}
+
+bool error_longjmp_enabled(void) {
+    return g_error_jmp_enabled;
+}
+
 /* Memory allocation */
 void *xmalloc(size_t size) {
     void *ptr = malloc(size);
     if (!ptr && size > 0) {
         error_set(ERR_OUT_OF_MEMORY, "Failed to allocate %zu bytes", size);
-        longjmp(g_error_jmp, 1);
+        if (g_error_jmp_enabled) {
+            longjmp(g_error_jmp, 1);
+        }
     }
     return ptr;
 }
@@ -89,7 +102,9 @@ void *xcalloc(size_t count, size_t size) {
     void *ptr = calloc(count, size);
     if (!ptr && count > 0 && size > 0) {
         error_set(ERR_OUT_OF_MEMORY, "Failed to allocate %zu bytes", count * size);
-        longjmp(g_error_jmp, 1);
+        if (g_error_jmp_enabled) {
+            longjmp(g_error_jmp, 1);
+        }
     }
     return ptr;
 }
@@ -98,7 +113,9 @@ void *xrealloc(void *ptr, size_t size) {
     void *newptr = realloc(ptr, size);
     if (!newptr && size > 0) {
         error_set(ERR_OUT_OF_MEMORY, "Failed to reallocate %zu bytes", size);
-        longjmp(g_error_jmp, 1);
+        if (g_error_jmp_enabled) {
+            longjmp(g_error_jmp, 1);
+        }
     }
     return newptr;
 }

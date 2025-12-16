@@ -47,16 +47,19 @@ typedef enum {
     ERR_INTERNAL
 } ErrorCode;
 
-/* Global error handling */
-extern jmp_buf g_error_jmp;
-extern ErrorCode g_last_error;
-extern char g_error_msg[256];
+/* Thread-local error handling */
+extern __thread jmp_buf g_error_jmp;
+extern __thread ErrorCode g_last_error;
+extern __thread char g_error_msg[256];
+extern __thread bool g_error_jmp_enabled;
 
 /* Error handling functions */
 void error_set(ErrorCode code, const char *fmt, ...);
 void error_clear(void);
 const char *error_string(ErrorCode code);
 void error_print(void);
+void error_enable_longjmp(bool enable);
+bool error_longjmp_enabled(void);
 
 /* Memory allocation with error handling */
 void *xmalloc(size_t size);

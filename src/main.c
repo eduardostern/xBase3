@@ -10,6 +10,8 @@
 #include "expr.h"
 #include "commands.h"
 #include "dbf.h"
+#include "server.h"
+#include "handlers.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -200,11 +202,16 @@ static void print_usage(const char *program) {
     printf("Usage: %s [options] [script.prg]\n", program);
     printf("\n");
     printf("Options:\n");
-    printf("  -h, --help     Show this help message\n");
-    printf("  -v, --version  Show version information\n");
-    printf("  -c <command>   Execute command and exit\n");
+    printf("  -h, --help       Show this help message\n");
+    printf("  -v, --version    Show version information\n");
+    printf("  -c <command>     Execute command and exit\n");
+    printf("  --server         Start in HTTP server mode\n");
+    printf("  --port <port>    Server port (default: 8080)\n");
     printf("\n");
     printf("If no script is specified, enters interactive mode.\n");
+    printf("\n");
+    printf("Server mode example:\n");
+    printf("  %s --server --port 8080\n", program);
 }
 
 /* Main entry point */
@@ -218,6 +225,8 @@ int main(int argc, char *argv[]) {
     int result = 0;
     const char *script_file = NULL;
     const char *command = NULL;
+    bool server_mode = false;
+    int server_port = SERVER_DEFAULT_PORT;
 
     /* Parse command line arguments */
     for (int i = 1; i < argc; i++) {
@@ -235,6 +244,21 @@ int main(int argc, char *argv[]) {
                 result = 1;
                 goto cleanup;
             }
+        } else if (strcmp(argv[i], "--server") == 0) {
+            server_mode = true;
+        } else if (strcmp(argv[i], "--port") == 0) {
+            if (i + 1 < argc) {
+                server_port = atoi(argv[++i]);
+                if (server_port <= 0 || server_port > 65535) {
+                    fprintf(stderr, "Error: Invalid port number\n");
+                    result = 1;
+                    goto cleanup;
+                }
+            } else {
+                fprintf(stderr, "Error: --port requires a port number\n");
+                result = 1;
+                goto cleanup;
+            }
         } else if (argv[i][0] == '-') {
             fprintf(stderr, "Error: Unknown option '%s'\n", argv[i]);
             result = 1;
@@ -245,7 +269,21 @@ int main(int argc, char *argv[]) {
     }
 
     /* Execute based on mode */
-    if (command) {
+    if (server_mode) {
+        /* HTTP server mode */
+        printf("\n");
+        printf("xBase3 HTTP Server v%s\n", XBASE3_VERSION);
+        printf("dBASE III+ Compatible REST API\n");
+        printf("\n");
+
+        ServerConfig cfg;
+        server_init(&cfg, (uint16_t)server_port);
+        handlers_register(&cfg);
+
+        result = server_start(&cfg, &g_ctx);
+
+        server_cleanup(&cfg);
+    } else if (command) {
         /* Execute single command */
         execute_line(command);
     } else if (script_file) {

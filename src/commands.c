@@ -17,6 +17,14 @@ void cmd_context_init(CommandContext *ctx) {
     eval_context_init(&ctx->eval_ctx);
     var_init();
 
+    /* Initialize mutex for thread safety */
+    pthread_mutex_init(&ctx->mutex, NULL);
+    ctx->mutex_initialized = true;
+
+    /* Default to printf output */
+    ctx->output_func = NULL;
+    ctx->output_ctx = NULL;
+
     /* Get current working directory */
     if (getcwd(ctx->current_path, sizeof(ctx->current_path)) == NULL) {
         strcpy(ctx->current_path, ".");
@@ -40,6 +48,29 @@ void cmd_context_cleanup(CommandContext *ctx) {
         ctx->eval_ctx.current_dbf = NULL;
     }
     var_cleanup();
+
+    /* Destroy mutex */
+    if (ctx->mutex_initialized) {
+        pthread_mutex_destroy(&ctx->mutex);
+        ctx->mutex_initialized = false;
+    }
+}
+
+void cmd_lock(CommandContext *ctx) {
+    if (ctx->mutex_initialized) {
+        pthread_mutex_lock(&ctx->mutex);
+    }
+}
+
+void cmd_unlock(CommandContext *ctx) {
+    if (ctx->mutex_initialized) {
+        pthread_mutex_unlock(&ctx->mutex);
+    }
+}
+
+void cmd_set_output(CommandContext *ctx, OutputFunc func, void *output_ctx) {
+    ctx->output_func = func;
+    ctx->output_ctx = output_ctx;
 }
 
 DBF *cmd_get_current_dbf(CommandContext *ctx) {
@@ -51,30 +82,30 @@ void cmd_set_current_dbf(CommandContext *ctx, DBF *dbf) {
 }
 
 /* Print expression result */
-static void print_value(const Value *v) {
+static void print_value(const Value *v, CommandContext *ctx) {
     char buf[MAX_STRING_LEN];
     value_to_string(v, buf, sizeof(buf));
-    printf("%s", buf);
+    CMD_OUTPUT(ctx, "%s", buf);
 }
 
 /* Execute ? command */
 static void cmd_print(ASTNode *node, CommandContext *ctx, bool newline_first) {
     if (newline_first) {
-        printf("\n");
+        CMD_OUTPUT(ctx, "\n");
     }
 
     for (int i = 0; i < node->data.print.expr_count; i++) {
         Value v = expr_eval(node->data.print.exprs[i], &ctx->eval_ctx);
-        print_value(&v);
+        print_value(&v, ctx);
         value_free(&v);
 
         if (i < node->data.print.expr_count - 1) {
-            printf(" ");
+            CMD_OUTPUT(ctx, " ");
         }
     }
 
     if (node->type == CMD_QUESTION) {
-        printf("\n");
+        CMD_OUTPUT(ctx, "\n");
     }
 }
 
@@ -151,7 +182,7 @@ static void cmd_close(ASTNode *node, CommandContext *ctx) {
 /* Execute CREATE command - reads field definitions from stdin */
 static void cmd_create(ASTNode *node, CommandContext *ctx) {
     if (!node->data.create.filename) {
-        printf("Enter filename: ");
+        CMD_OUTPUT(ctx, "Enter filename: ");
         /* Would need to read filename from stdin */
         error_set(ERR_SYNTAX, "CREATE requires filename");
         error_print();
@@ -173,14 +204,14 @@ static void cmd_create(ASTNode *node, CommandContext *ctx) {
     }
 
     /* Read field definitions from stdin */
-    printf("Enter fields (name,type,length[,decimals]) - blank line to finish:\n");
+    CMD_OUTPUT(ctx, "Enter fields (name,type,length[,decimals]) - blank line to finish:\n");
 
     DBFField fields[MAX_FIELDS];
     int field_count = 0;
     char line[256];
 
     while (field_count < MAX_FIELDS) {
-        printf("Field %d: ", field_count + 1);
+        CMD_OUTPUT(ctx, "Field %d: ", field_count + 1);
         fflush(stdout);
 
         if (!fgets(line, sizeof(line), stdin)) {
@@ -206,7 +237,7 @@ static void cmd_create(ASTNode *node, CommandContext *ctx) {
         /* Find comma after name */
         char *comma = strchr(p, ',');
         if (!comma) {
-            printf("Invalid format. Use: name,type,length[,decimals]\n");
+            CMD_OUTPUT(ctx, "Invalid format. Use: name,type,length[,decimals]\n");
             continue;
         }
         *comma = '\0';
@@ -216,14 +247,14 @@ static void cmd_create(ASTNode *node, CommandContext *ctx) {
         while (*p == ' ') p++;
         char type = (char)toupper(*p);
         if (type != 'C' && type != 'N' && type != 'D' && type != 'L' && type != 'M') {
-            printf("Invalid type '%c'. Use C/N/D/L/M\n", type);
+            CMD_OUTPUT(ctx, "Invalid type '%c'. Use C/N/D/L/M\n", type);
             continue;
         }
 
         /* Find comma after type */
         comma = strchr(p, ',');
         if (!comma) {
-            printf("Invalid format. Use: name,type,length[,decimals]\n");
+            CMD_OUTPUT(ctx, "Invalid format. Use: name,type,length[,decimals]\n");
             continue;
         }
 
@@ -232,7 +263,7 @@ static void cmd_create(ASTNode *node, CommandContext *ctx) {
         while (*p == ' ') p++;
         int length = atoi(p);
         if (length <= 0 || length > 255) {
-            printf("Invalid length. Must be 1-255\n");
+            CMD_OUTPUT(ctx, "Invalid length. Must be 1-255\n");
             continue;
         }
 
@@ -257,7 +288,7 @@ static void cmd_create(ASTNode *node, CommandContext *ctx) {
     }
 
     if (field_count == 0) {
-        printf("No fields defined. Database not created.\n");
+        CMD_OUTPUT(ctx, "No fields defined. Database not created.\n");
         return;
     }
 
@@ -268,7 +299,7 @@ static void cmd_create(ASTNode *node, CommandContext *ctx) {
         return;
     }
 
-    printf("Database %s created with %d field(s)\n", path, field_count);
+    CMD_OUTPUT(ctx, "Database %s created with %d field(s)\n", path, field_count);
 
     /* Close current and open new */
     if (ctx->eval_ctx.current_dbf) {
@@ -337,7 +368,7 @@ static void cmd_list(ASTNode *node, CommandContext *ctx, bool is_display) {
 
     /* Handle DISPLAY with no records */
     if (is_display && (dbf_eof(dbf) || dbf_recno(dbf) == 0)) {
-        printf("No records in database\n");
+        CMD_OUTPUT(ctx, "No records in database\n");
         return;
     }
 
@@ -349,14 +380,14 @@ static void cmd_list(ASTNode *node, CommandContext *ctx, bool is_display) {
         if (check_for_condition(node, ctx)) {
             /* Print record number */
             if (!node->data.list.off) {
-                printf("%8u ", dbf_recno(dbf));
+                CMD_OUTPUT(ctx, "%8u ", dbf_recno(dbf));
             }
 
             /* Print deleted marker */
             if (dbf_deleted(dbf)) {
-                printf("* ");
+                CMD_OUTPUT(ctx, "* ");
             } else {
-                printf("  ");
+                CMD_OUTPUT(ctx, "  ");
             }
 
             /* Print fields */
@@ -364,9 +395,9 @@ static void cmd_list(ASTNode *node, CommandContext *ctx, bool is_display) {
                 /* Specific fields */
                 for (int i = 0; i < node->data.list.field_count; i++) {
                     Value v = expr_eval(node->data.list.fields[i], &ctx->eval_ctx);
-                    print_value(&v);
+                    print_value(&v, ctx);
                     value_free(&v);
-                    printf(" ");
+                    CMD_OUTPUT(ctx, " ");
                 }
             } else {
                 /* All fields */
@@ -374,11 +405,11 @@ static void cmd_list(ASTNode *node, CommandContext *ctx, bool is_display) {
                 for (int i = 0; i < fc; i++) {
                     char buf[MAX_FIELD_LEN + 1];
                     dbf_get_string(dbf, i, buf, sizeof(buf));
-                    printf("%s ", buf);
+                    CMD_OUTPUT(ctx, "%s ", buf);
                 }
             }
 
-            printf("\n");
+            CMD_OUTPUT(ctx, "\n");
             processed++;
 
             /* DISPLAY shows only current record by default */
@@ -392,7 +423,7 @@ static void cmd_list(ASTNode *node, CommandContext *ctx, bool is_display) {
     }
 
     if (processed == 0 && !is_display) {
-        printf("No records found\n");
+        CMD_OUTPUT(ctx, "No records found\n");
     }
 }
 
@@ -449,13 +480,13 @@ static void cmd_locate(ASTNode *node, CommandContext *ctx) {
 
     while (!dbf_eof(dbf)) {
         if (check_for_condition(node, ctx)) {
-            printf("Record %u\n", dbf_recno(dbf));
+            CMD_OUTPUT(ctx, "Record %u\n", dbf_recno(dbf));
             return;
         }
         dbf_skip(dbf, 1);
     }
 
-    printf("End of LOCATE scope\n");
+    CMD_OUTPUT(ctx, "End of LOCATE scope\n");
 }
 
 /* Execute CONTINUE command */
@@ -471,9 +502,9 @@ static void cmd_continue(ASTNode *node, CommandContext *ctx) {
     /* Continue from next record - simplified (should remember LOCATE condition) */
     dbf_skip(dbf, 1);
     if (dbf_eof(dbf)) {
-        printf("End of LOCATE scope\n");
+        CMD_OUTPUT(ctx, "End of LOCATE scope\n");
     } else {
-        printf("Record %u\n", dbf_recno(dbf));
+        CMD_OUTPUT(ctx, "Record %u\n", dbf_recno(dbf));
     }
 }
 
@@ -488,7 +519,7 @@ static void cmd_append(ASTNode *node, CommandContext *ctx) {
     }
 
     if (dbf_append_blank(dbf)) {
-        printf("Record %u appended\n", dbf_recno(dbf));
+        CMD_OUTPUT(ctx, "Record %u appended\n", dbf_recno(dbf));
     } else {
         error_print();
     }
@@ -510,7 +541,7 @@ static void cmd_delete(ASTNode *node, CommandContext *ctx) {
     if (node->scope.type == SCOPE_ALL && !node->condition && !node->while_cond) {
         if (dbf_delete(dbf)) {
             dbf_flush(dbf);
-            printf("1 record deleted\n");
+            CMD_OUTPUT(ctx, "1 record deleted\n");
         }
         return;
     }
@@ -533,7 +564,7 @@ static void cmd_delete(ASTNode *node, CommandContext *ctx) {
     }
 
     dbf_flush(dbf);
-    printf("%u record(s) deleted\n", deleted);
+    CMD_OUTPUT(ctx, "%u record(s) deleted\n", deleted);
 }
 
 /* Execute RECALL command */
@@ -552,7 +583,7 @@ static void cmd_recall(ASTNode *node, CommandContext *ctx) {
     if (node->scope.type == SCOPE_ALL && !node->condition && !node->while_cond) {
         if (dbf_recall(dbf)) {
             dbf_flush(dbf);
-            printf("1 record recalled\n");
+            CMD_OUTPUT(ctx, "1 record recalled\n");
         }
         return;
     }
@@ -575,7 +606,7 @@ static void cmd_recall(ASTNode *node, CommandContext *ctx) {
     }
 
     dbf_flush(dbf);
-    printf("%u record(s) recalled\n", recalled);
+    CMD_OUTPUT(ctx, "%u record(s) recalled\n", recalled);
 }
 
 /* Execute PACK command */
@@ -591,7 +622,7 @@ static void cmd_pack(ASTNode *node, CommandContext *ctx) {
     uint32_t before = dbf_reccount(dbf);
     if (dbf_pack(dbf)) {
         uint32_t after = dbf_reccount(dbf);
-        printf("%u record(s) removed, %u remain\n", before - after, after);
+        CMD_OUTPUT(ctx, "%u record(s) removed, %u remain\n", before - after, after);
     } else {
         error_print();
     }
@@ -609,7 +640,7 @@ static void cmd_zap(ASTNode *node, CommandContext *ctx) {
 
     uint32_t count = dbf_reccount(dbf);
     if (dbf_zap(dbf)) {
-        printf("%u record(s) removed\n", count);
+        CMD_OUTPUT(ctx, "%u record(s) removed\n", count);
     } else {
         error_print();
     }
@@ -768,9 +799,9 @@ static void cmd_index(ASTNode *node, CommandContext *ctx) {
     if (ctx->index_count < MAX_INDEXES) {
         ctx->indexes[ctx->index_count++] = xdx;
         ctx->current_order = ctx->index_count;  /* Set as controlling index */
-        printf("%u record(s) indexed\n", indexed);
+        CMD_OUTPUT(ctx, "%u record(s) indexed\n", indexed);
     } else {
-        printf("Warning: Maximum indexes open, closing new index\n");
+        CMD_OUTPUT(ctx, "Warning: Maximum indexes open, closing new index\n");
         xdx_close(xdx);
     }
 }
@@ -780,7 +811,7 @@ static void cmd_set_index(ASTNode *node, CommandContext *ctx) {
     /* SET INDEX TO without filename closes all indexes */
     if (!node->data.index.filename) {
         close_indexes(ctx);
-        printf("Indexes closed\n");
+        CMD_OUTPUT(ctx, "Indexes closed\n");
         return;
     }
 
@@ -809,9 +840,9 @@ static void cmd_set_index(ASTNode *node, CommandContext *ctx) {
     if (ctx->index_count < MAX_INDEXES) {
         ctx->indexes[ctx->index_count++] = xdx;
         ctx->current_order = ctx->index_count;
-        printf("Index %s opened\n", path);
+        CMD_OUTPUT(ctx, "Index %s opened\n", path);
     } else {
-        printf("Error: Maximum indexes already open\n");
+        CMD_OUTPUT(ctx, "Error: Maximum indexes already open\n");
         xdx_close(xdx);
     }
 }
@@ -826,13 +857,13 @@ static void cmd_seek(ASTNode *node, CommandContext *ctx) {
     }
 
     if (ctx->current_order == 0 || ctx->index_count == 0) {
-        printf("No index in use\n");
+        CMD_OUTPUT(ctx, "No index in use\n");
         return;
     }
 
     XDX *xdx = ctx->indexes[ctx->current_order - 1];
     if (!xdx) {
-        printf("No controlling index\n");
+        CMD_OUTPUT(ctx, "No controlling index\n");
         return;
     }
 
@@ -861,15 +892,15 @@ static void cmd_seek(ASTNode *node, CommandContext *ctx) {
     if (recno > 0) {
         dbf_goto(dbf, recno);
         if (found) {
-            printf("Found at record %u\n", recno);
+            CMD_OUTPUT(ctx, "Found at record %u\n", recno);
         } else {
-            printf("Not found, positioned at record %u\n", recno);
+            CMD_OUTPUT(ctx, "Not found, positioned at record %u\n", recno);
         }
     } else {
         /* Position at EOF */
         dbf_go_bottom(dbf);
         dbf_skip(dbf, 1);
-        printf("Not found\n");
+        CMD_OUTPUT(ctx, "Not found\n");
     }
 }
 
@@ -884,23 +915,23 @@ static void cmd_reindex(ASTNode *node, CommandContext *ctx) {
     }
 
     if (ctx->index_count == 0) {
-        printf("No indexes to rebuild\n");
+        CMD_OUTPUT(ctx, "No indexes to rebuild\n");
         return;
     }
 
-    printf("Rebuilding %d index(es)...\n", ctx->index_count);
+    CMD_OUTPUT(ctx, "Rebuilding %d index(es)...\n", ctx->index_count);
 
     /* Note: Full reindex would need to re-evaluate the key expression
        for each record. For now, we just report that it would be done. */
     for (int i = 0; i < ctx->index_count; i++) {
         XDX *xdx = ctx->indexes[i];
         if (xdx) {
-            printf("  Reindexing %s...\n", xdx_key_expr(xdx));
+            CMD_OUTPUT(ctx, "  Reindexing %s...\n", xdx_key_expr(xdx));
             /* Would call xdx_reindex here with proper key evaluator */
         }
     }
 
-    printf("Reindex complete\n");
+    CMD_OUTPUT(ctx, "Reindex complete\n");
 }
 
 /* Execute SET ORDER TO command */
@@ -908,7 +939,7 @@ static void cmd_set_order(ASTNode *node, CommandContext *ctx) {
     if (!node->data.set.value) {
         /* SET ORDER TO 0 or no value - disable controlling index */
         ctx->current_order = 0;
-        printf("Index order: natural\n");
+        CMD_OUTPUT(ctx, "Index order: natural\n");
         return;
     }
 
@@ -917,15 +948,15 @@ static void cmd_set_order(ASTNode *node, CommandContext *ctx) {
     value_free(&val);
 
     if (order < 0 || order > ctx->index_count) {
-        printf("Invalid index order: %d (have %d indexes)\n", order, ctx->index_count);
+        CMD_OUTPUT(ctx, "Invalid index order: %d (have %d indexes)\n", order, ctx->index_count);
         return;
     }
 
     ctx->current_order = order;
     if (order == 0) {
-        printf("Index order: natural\n");
+        CMD_OUTPUT(ctx, "Index order: natural\n");
     } else {
-        printf("Index order: %d\n", order);
+        CMD_OUTPUT(ctx, "Index order: %d\n", order);
     }
 }
 
@@ -939,7 +970,7 @@ static void cmd_replace(ASTNode *node, CommandContext *ctx) {
     }
 
     if (dbf_eof(dbf) || dbf_recno(dbf) == 0) {
-        printf("No record to replace\n");
+        CMD_OUTPUT(ctx, "No record to replace\n");
         return;
     }
 
@@ -1010,7 +1041,7 @@ static void cmd_replace(ASTNode *node, CommandContext *ctx) {
 
     } while (!dbf_eof(dbf));
 
-    printf("%u record(s) replaced\n", replaced);
+    CMD_OUTPUT(ctx, "%u record(s) replaced\n", replaced);
 }
 
 /* Execute STORE command */
@@ -1049,22 +1080,22 @@ static void cmd_set(ASTNode *node, CommandContext *ctx) {
     }
 
     /* Basic SET handling - many options not implemented */
-    printf("SET %s", option);
+    CMD_OUTPUT(ctx, "SET %s", option);
     if (node->data.set.value) {
         char buf[256];
         Value v = expr_eval(node->data.set.value, &ctx->eval_ctx);
         value_to_string(&v, buf, sizeof(buf));
-        printf(" TO %s", buf);
+        CMD_OUTPUT(ctx, " TO %s", buf);
         value_free(&v);
     }
-    printf("\n");
+    CMD_OUTPUT(ctx, "\n");
 }
 
 /* Execute CLEAR command */
 static void cmd_clear(ASTNode *node, CommandContext *ctx) {
-    (void)node; (void)ctx;
+    (void)node;
     /* Clear screen - just print newlines */
-    printf("\n\n\n\n\n\n\n\n\n\n");
+    CMD_OUTPUT(ctx, "\n\n\n\n\n\n\n\n\n\n");
 }
 
 /* Execute PUBLIC/PRIVATE/LOCAL command */
@@ -1114,10 +1145,10 @@ static void cmd_declare(ASTNode *node, CommandContext *ctx) {
 static void cmd_wait(ASTNode *node, CommandContext *ctx) {
     if (node->data.input.prompt) {
         Value v = expr_eval(node->data.input.prompt, &ctx->eval_ctx);
-        print_value(&v);
+        print_value(&v, ctx);
         value_free(&v);
     } else {
-        printf("Press any key to continue...");
+        CMD_OUTPUT(ctx, "Press any key to continue...");
     }
     fflush(stdout);
 
@@ -1130,7 +1161,7 @@ static void cmd_wait(ASTNode *node, CommandContext *ctx) {
         value_free(&v);
     }
 
-    printf("\n");
+    CMD_OUTPUT(ctx, "\n");
 }
 
 /* Execute COUNT command */
@@ -1156,7 +1187,7 @@ static void cmd_count(ASTNode *node, CommandContext *ctx) {
         dbf_skip(dbf, 1);
     }
 
-    printf("%u record(s)\n", count);
+    CMD_OUTPUT(ctx, "%u record(s)\n", count);
 
     /* Store result if variable specified */
     if (node->data.aggregate.count > 0 && node->data.aggregate.vars) {
@@ -1297,7 +1328,7 @@ void cmd_execute(ASTNode *node, CommandContext *ctx) {
             break;
 
         default:
-            printf("Command not implemented\n");
+            CMD_OUTPUT(ctx, "Command not implemented\n");
             break;
     }
 }
