@@ -88,6 +88,7 @@ typedef enum {
     TOK_FOR,
     TOK_FUNCTION,
     TOK_GO,
+    TOK_HELP,
     TOK_GOTO,
     TOK_IF,
     TOK_INDEX,

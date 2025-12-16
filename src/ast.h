@@ -127,6 +127,7 @@ typedef enum {
     CMD_ERASE,          /* ERASE file */
     CMD_RUN,            /* RUN command / ! command */
     CMD_NOTE,           /* NOTE comment */
+    CMD_HELP,           /* HELP [command] */
     CMD_UNKNOWN         /* Unknown command */
 } CommandType;
 

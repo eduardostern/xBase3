@@ -49,6 +49,7 @@ static struct {
     {"FUNCTION", TOK_FUNCTION},
     {"GO", TOK_GO},
     {"GOTO", TOK_GOTO},
+    {"HELP", TOK_HELP},
     {"IF", TOK_IF},
     {"INDEX", TOK_INDEX},
     {"INPUT", TOK_INPUT},

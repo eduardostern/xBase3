@@ -1062,6 +1062,11 @@ ASTNode *parser_parse_command(Parser *p) {
             node = ast_node_new(CMD_QUIT);
             break;
 
+        case TOK_HELP:
+            advance(p);
+            node = ast_node_new(CMD_HELP);
+            break;
+
         case TOK_CANCEL:
             advance(p);
             node = ast_node_new(CMD_CANCEL);

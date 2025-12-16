@@ -1197,6 +1197,124 @@ static void cmd_count(ASTNode *node, CommandContext *ctx) {
     }
 }
 
+/* Execute HELP command */
+static void cmd_help(ASTNode *node, CommandContext *ctx) {
+    (void)node;  /* Unused for now */
+
+    CMD_OUTPUT(ctx, "\n");
+    CMD_OUTPUT(ctx, "xBase3 - dBASE III+ Compatible Database System\n");
+    CMD_OUTPUT(ctx, "===============================================\n\n");
+
+    CMD_OUTPUT(ctx, "DATABASE COMMANDS:\n");
+    CMD_OUTPUT(ctx, "  USE <file> [ALIAS <name>] [EXCLUSIVE|SHARED]\n");
+    CMD_OUTPUT(ctx, "                          Open a database file\n");
+    CMD_OUTPUT(ctx, "  CLOSE [DATABASES|INDEXES|ALL]\n");
+    CMD_OUTPUT(ctx, "                          Close files\n");
+    CMD_OUTPUT(ctx, "  CREATE <file>           Create new database interactively\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "NAVIGATION:\n");
+    CMD_OUTPUT(ctx, "  GO <n> | GO TOP | GO BOTTOM\n");
+    CMD_OUTPUT(ctx, "                          Move to record number, first, or last\n");
+    CMD_OUTPUT(ctx, "  SKIP [<n>]              Skip forward/backward n records (default 1)\n");
+    CMD_OUTPUT(ctx, "  LOCATE [<scope>] FOR <condition>\n");
+    CMD_OUTPUT(ctx, "                          Find first record matching condition\n");
+    CMD_OUTPUT(ctx, "  CONTINUE                Find next matching record after LOCATE\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "DISPLAY:\n");
+    CMD_OUTPUT(ctx, "  LIST [<fields>] [<scope>] [FOR <cond>] [WHILE <cond>] [OFF]\n");
+    CMD_OUTPUT(ctx, "                          List records continuously\n");
+    CMD_OUTPUT(ctx, "  DISPLAY [<fields>] [<scope>] [FOR <cond>] [WHILE <cond>] [OFF]\n");
+    CMD_OUTPUT(ctx, "                          Display records with pause\n");
+    CMD_OUTPUT(ctx, "  ? <expr> [, <expr>...]  Print expressions with newline\n");
+    CMD_OUTPUT(ctx, "  ?? <expr> [, <expr>...] Print expressions without newline\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "DATA MODIFICATION:\n");
+    CMD_OUTPUT(ctx, "  APPEND BLANK            Add new empty record\n");
+    CMD_OUTPUT(ctx, "  REPLACE <field> WITH <expr> [, ...] [<scope>] [FOR <cond>]\n");
+    CMD_OUTPUT(ctx, "                          Update field values\n");
+    CMD_OUTPUT(ctx, "  DELETE [<scope>] [FOR <cond>] [WHILE <cond>]\n");
+    CMD_OUTPUT(ctx, "                          Mark records as deleted\n");
+    CMD_OUTPUT(ctx, "  RECALL [<scope>] [FOR <cond>] [WHILE <cond>]\n");
+    CMD_OUTPUT(ctx, "                          Undelete records\n");
+    CMD_OUTPUT(ctx, "  PACK                    Permanently remove deleted records\n");
+    CMD_OUTPUT(ctx, "  ZAP                     Delete all records\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "VARIABLES:\n");
+    CMD_OUTPUT(ctx, "  STORE <expr> TO <var>   Assign value to variable\n");
+    CMD_OUTPUT(ctx, "  <var> = <expr>          Assign value to variable\n");
+    CMD_OUTPUT(ctx, "  PUBLIC <var> [, ...]    Declare public variables\n");
+    CMD_OUTPUT(ctx, "  PRIVATE <var> [, ...]   Declare private variables\n");
+    CMD_OUTPUT(ctx, "  LOCAL <var> [, ...]     Declare local variables\n");
+    CMD_OUTPUT(ctx, "  RELEASE <var> [, ...] | RELEASE ALL\n");
+    CMD_OUTPUT(ctx, "                          Release variables\n");
+    CMD_OUTPUT(ctx, "  DECLARE <array>[<size>] Declare array\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "INDEX COMMANDS:\n");
+    CMD_OUTPUT(ctx, "  INDEX ON <expr> TO <file> [UNIQUE] [DESCENDING]\n");
+    CMD_OUTPUT(ctx, "                          Create index file\n");
+    CMD_OUTPUT(ctx, "  SET INDEX TO <file> [, ...]\n");
+    CMD_OUTPUT(ctx, "                          Open index file(s)\n");
+    CMD_OUTPUT(ctx, "  SET ORDER TO <n>        Set controlling index\n");
+    CMD_OUTPUT(ctx, "  REINDEX                 Rebuild all open indexes\n");
+    CMD_OUTPUT(ctx, "  SEEK <expr>             Find record by index key\n");
+    CMD_OUTPUT(ctx, "  FIND <literal>          Find record by literal key\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "CONTROL FLOW:\n");
+    CMD_OUTPUT(ctx, "  IF <cond> ... [ELSE ...] ENDIF\n");
+    CMD_OUTPUT(ctx, "                          Conditional execution\n");
+    CMD_OUTPUT(ctx, "  DO WHILE <cond> ... ENDDO\n");
+    CMD_OUTPUT(ctx, "                          While loop\n");
+    CMD_OUTPUT(ctx, "  FOR <var>=<start> TO <end> [STEP <n>] ... NEXT\n");
+    CMD_OUTPUT(ctx, "                          For loop\n");
+    CMD_OUTPUT(ctx, "  DO CASE ... CASE <cond> ... [OTHERWISE ...] ENDCASE\n");
+    CMD_OUTPUT(ctx, "                          Case statement\n");
+    CMD_OUTPUT(ctx, "  EXIT                    Exit loop\n");
+    CMD_OUTPUT(ctx, "  LOOP                    Continue to next iteration\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "AGGREGATE:\n");
+    CMD_OUTPUT(ctx, "  COUNT [<scope>] [FOR <cond>] [TO <var>]\n");
+    CMD_OUTPUT(ctx, "                          Count records\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "OTHER:\n");
+    CMD_OUTPUT(ctx, "  SET <option> [TO <value>|ON|OFF]\n");
+    CMD_OUTPUT(ctx, "                          Set system options\n");
+    CMD_OUTPUT(ctx, "  CLEAR [ALL|MEMORY]      Clear screen or variables\n");
+    CMD_OUTPUT(ctx, "  WAIT [<prompt>] [TO <var>]\n");
+    CMD_OUTPUT(ctx, "                          Wait for keypress\n");
+    CMD_OUTPUT(ctx, "  QUIT                    Exit xBase3\n");
+    CMD_OUTPUT(ctx, "  CANCEL                  Cancel current operation\n");
+    CMD_OUTPUT(ctx, "  HELP                    Show this help\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "SCOPE OPTIONS:\n");
+    CMD_OUTPUT(ctx, "  ALL                     All records\n");
+    CMD_OUTPUT(ctx, "  NEXT <n>                Next n records\n");
+    CMD_OUTPUT(ctx, "  RECORD <n>              Specific record number\n");
+    CMD_OUTPUT(ctx, "  REST                    From current to end\n");
+    CMD_OUTPUT(ctx, "\n");
+
+    CMD_OUTPUT(ctx, "FUNCTIONS:\n");
+    CMD_OUTPUT(ctx, "  String: TRIM(), LTRIM(), RTRIM(), UPPER(), LOWER(), LEN(),\n");
+    CMD_OUTPUT(ctx, "          SUBSTR(), LEFT(), RIGHT(), SPACE(), REPLICATE(),\n");
+    CMD_OUTPUT(ctx, "          AT(), STUFF(), PADR(), PADL(), PADC(), CHR(), ASC()\n");
+    CMD_OUTPUT(ctx, "  Numeric: ABS(), INT(), ROUND(), SQRT(), EXP(), LOG(), MOD(),\n");
+    CMD_OUTPUT(ctx, "           MIN(), MAX(), VAL(), STR()\n");
+    CMD_OUTPUT(ctx, "  Date: DATE(), YEAR(), MONTH(), DAY(), DOW(), CDOW(), CMONTH(),\n");
+    CMD_OUTPUT(ctx, "        DTOC(), CTOD(), DTOS()\n");
+    CMD_OUTPUT(ctx, "  Logical: IIF(), EMPTY(), TYPE(), BETWEEN(), INLIST()\n");
+    CMD_OUTPUT(ctx, "  Database: RECNO(), RECCOUNT(), EOF(), BOF(), DELETED(),\n");
+    CMD_OUTPUT(ctx, "            FOUND(), FIELD(), FCOUNT(), DBF()\n");
+    CMD_OUTPUT(ctx, "\n");
+}
+
 /* Main command executor */
 void cmd_execute(ASTNode *node, CommandContext *ctx) {
     if (!node) return;
@@ -1325,6 +1443,10 @@ void cmd_execute(ASTNode *node, CommandContext *ctx) {
 
         case CMD_CANCEL:
             ctx->cancel_requested = true;
+            break;
+
+        case CMD_HELP:
+            cmd_help(node, ctx);
             break;
 
         default:
