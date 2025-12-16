@@ -2,6 +2,8 @@
 
 A dBASE III+ compatible database system written in C.
 
+*dBASE was originally created by Ashton-Tate (1979) and later developed by Borland. xBase3 is an independent open-source implementation.*
+
 ## Features
 
 - **Full DBF Support**: Read and write standard dBASE III+ .DBF files

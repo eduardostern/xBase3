@@ -41,7 +41,8 @@ static void print_banner(void) {
     printf("\n");
     printf("xBase3 version %s\n", XBASE3_VERSION);
     printf("dBASE III+ Compatible Database System\n");
-    printf("Type QUIT to exit, ? expr to evaluate\n");
+    printf("dBASE originally by Ashton-Tate (1979), later Borland\n");
+    printf("Type HELP for commands, QUIT to exit\n");
     printf("\n");
 }
 

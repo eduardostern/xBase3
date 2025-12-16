@@ -1313,6 +1313,9 @@ static void cmd_help(ASTNode *node, CommandContext *ctx) {
     CMD_OUTPUT(ctx, "  Database: RECNO(), RECCOUNT(), EOF(), BOF(), DELETED(),\n");
     CMD_OUTPUT(ctx, "            FOUND(), FIELD(), FCOUNT(), DBF()\n");
     CMD_OUTPUT(ctx, "\n");
+    CMD_OUTPUT(ctx, "dBASE was originally created by Ashton-Tate (1979) and later developed\n");
+    CMD_OUTPUT(ctx, "by Borland. xBase3 is an independent open-source implementation.\n");
+    CMD_OUTPUT(ctx, "\n");
 }
 
 /* Main command executor */
