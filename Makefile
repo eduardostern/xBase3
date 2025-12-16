@@ -19,6 +19,7 @@ TESTDIR = tests
 # Source files
 SOURCES = $(SRCDIR)/util.c \
           $(SRCDIR)/dbf.c \
+          $(SRCDIR)/xdx.c \
           $(SRCDIR)/lexer.c \
           $(SRCDIR)/ast.c \
           $(SRCDIR)/parser.c \
@@ -38,6 +39,7 @@ TARGET = $(BUILDDIR)/xbase3
 
 # Test executables
 TEST_DBF = $(BUILDDIR)/test_dbf
+TEST_XDX = $(BUILDDIR)/test_xdx
 TEST_LEXER = $(BUILDDIR)/test_lexer
 TEST_PARSER = $(BUILDDIR)/test_parser
 TEST_EXPR = $(BUILDDIR)/test_expr
@@ -56,13 +58,16 @@ $(TARGET): $(OBJECTS) $(MAIN_OBJ)
 	$(CC) $(OBJECTS) $(MAIN_OBJ) -o $@ $(LDFLAGS)
 
 # Tests
-test: $(TEST_DBF) $(TEST_LEXER) $(TEST_PARSER) $(TEST_EXPR)
+test: $(TEST_DBF) $(TEST_XDX) $(TEST_LEXER) $(TEST_PARSER) $(TEST_EXPR)
 	@echo "Running tests..."
-	@$(TEST_DBF) && $(TEST_LEXER) && $(TEST_PARSER) && $(TEST_EXPR)
+	@$(TEST_DBF) && $(TEST_XDX) && $(TEST_LEXER) && $(TEST_PARSER) && $(TEST_EXPR)
 	@echo "All tests passed!"
 
 $(TEST_DBF): $(TESTDIR)/test_dbf.c $(OBJECTS)
 	$(CC) $(CFLAGS) -I$(SRCDIR) $(TESTDIR)/test_dbf.c $(OBJECTS) -o $@ $(LDFLAGS)
+
+$(TEST_XDX): $(TESTDIR)/test_xdx.c $(OBJECTS)
+	$(CC) $(CFLAGS) -I$(SRCDIR) $(TESTDIR)/test_xdx.c $(OBJECTS) -o $@ $(LDFLAGS)
 
 $(TEST_LEXER): $(TESTDIR)/test_lexer.c $(OBJECTS)
 	$(CC) $(CFLAGS) -I$(SRCDIR) $(TESTDIR)/test_lexer.c $(OBJECTS) -o $@ $(LDFLAGS)
@@ -79,11 +84,12 @@ clean:
 # Dependencies
 $(BUILDDIR)/util.o: $(SRCDIR)/util.h
 $(BUILDDIR)/dbf.o: $(SRCDIR)/dbf.h $(SRCDIR)/util.h
+$(BUILDDIR)/xdx.o: $(SRCDIR)/xdx.h $(SRCDIR)/dbf.h $(SRCDIR)/util.h
 $(BUILDDIR)/lexer.o: $(SRCDIR)/lexer.h $(SRCDIR)/util.h
 $(BUILDDIR)/ast.o: $(SRCDIR)/ast.h $(SRCDIR)/lexer.h $(SRCDIR)/util.h
 $(BUILDDIR)/parser.o: $(SRCDIR)/parser.h $(SRCDIR)/lexer.h $(SRCDIR)/ast.h
 $(BUILDDIR)/expr.o: $(SRCDIR)/expr.h $(SRCDIR)/ast.h $(SRCDIR)/dbf.h
 $(BUILDDIR)/functions.o: $(SRCDIR)/functions.h $(SRCDIR)/expr.h
 $(BUILDDIR)/variables.o: $(SRCDIR)/variables.h $(SRCDIR)/expr.h
-$(BUILDDIR)/commands.o: $(SRCDIR)/commands.h $(SRCDIR)/ast.h $(SRCDIR)/expr.h $(SRCDIR)/dbf.h
+$(BUILDDIR)/commands.o: $(SRCDIR)/commands.h $(SRCDIR)/ast.h $(SRCDIR)/expr.h $(SRCDIR)/dbf.h $(SRCDIR)/xdx.h
 $(BUILDDIR)/main.o: $(SRCDIR)/util.h $(SRCDIR)/lexer.h $(SRCDIR)/parser.h $(SRCDIR)/ast.h $(SRCDIR)/expr.h $(SRCDIR)/commands.h $(SRCDIR)/dbf.h

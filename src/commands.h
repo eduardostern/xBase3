@@ -9,6 +9,10 @@
 #include "ast.h"
 #include "expr.h"
 #include "dbf.h"
+#include "xdx.h"
+
+/* Maximum open indexes per work area */
+#define MAX_INDEXES 10
 
 /* Command execution context */
 typedef struct {
@@ -16,6 +20,11 @@ typedef struct {
     bool quit_requested;
     bool cancel_requested;
     char current_path[MAX_PATH_LEN];
+
+    /* Index support */
+    XDX *indexes[MAX_INDEXES];      /* Open indexes */
+    int index_count;                /* Number of open indexes */
+    int current_order;              /* Current controlling index (0 = none) */
 } CommandContext;
 
 /* Initialize command context */
